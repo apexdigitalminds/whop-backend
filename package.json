@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@supabase/supabase-js": "^2.77.0",
     "@whop/sdk": "^0.0.3",
     "cross-fetch": "^4.1.0",
     "zod": "^4.1.12"
