@@ -1,14 +1,16 @@
 {
   "name": "whop_backend",
   "version": "1.0.0",
+  "type": "module",
   "main": "index.js",
   "scripts": {
+    "start": "node api/health.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Whop backend for gamified community app",
   "dependencies": {
     "@supabase/supabase-js": "^2.77.0",
     "@whop/sdk": "^0.0.3",
