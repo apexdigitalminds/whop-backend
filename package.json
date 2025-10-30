@@ -1,0 +1,17 @@
+{
+  "name": "whop_backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@whop/sdk": "^0.0.3",
+    "cross-fetch": "^4.1.0",
+    "zod": "^4.1.12"
+  }
+}
