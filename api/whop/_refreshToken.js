@@ -12,16 +12,17 @@ export async function refreshWhopToken(communityId) {
       throw new Error("No refresh token available.");
     }
 
-    const response = await fetch("https://api.whop.com/oauth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        grant_type: "refresh_token",
-        refresh_token: community.whop_refresh_token,
-        client_id: process.env.WHOP_CLIENT_ID,
-        client_secret: process.env.WHOP_CLIENT_SECRET,
-      }),
-    });
+const response = await fetch("https://api.whop.com/v5/oauth/token", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    grant_type: "refresh_token",
+    refresh_token: community.whop_refresh_token,
+    client_id: process.env.WHOP_CLIENT_ID,
+    client_secret: process.env.WHOP_CLIENT_SECRET,
+  }),
+});
+
 
     const tokenData = await response.json();
     if (!response.ok) throw new Error(JSON.stringify(tokenData));

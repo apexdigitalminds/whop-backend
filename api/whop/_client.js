@@ -1,35 +1,32 @@
-import Whop from "@whop/sdk";
-import fetch from "cross-fetch/dist/node-polyfill.js";
+import { WhopAPI } from "@whop/api";
+import fetch from "cross-fetch";
 import { supabase } from "../_supabase.js";
 
-// Ensure fetch exists for older Node runtimes
 if (!globalThis.fetch) globalThis.fetch = fetch;
 
 /**
- * Create a Whop SDK client.
- * - If a valid accessToken is provided → use per-community OAuth token
- * - Else fall back to environment WHOP_API_KEY for legacy mode
+ * Create a Whop API client.
+ * If a community access token exists, use that.
+ * Otherwise, fall back to the environment API key (admin mode).
  */
 export async function createWhopClient(accessToken = null) {
-  // 1️⃣ Use per-community token if available
   if (accessToken) {
-    return new Whop({ accessToken });
+    return new WhopAPI({
+      token: accessToken,
+      appId: process.env.WHOP_CLIENT_ID,
+    });
   }
 
-  // 2️⃣ Otherwise, try to fall back gracefully
   const apiKey = process.env.WHOP_API_KEY;
-  const appID = process.env.WHOP_APP_ID;
-
-  if (!apiKey || !appID) {
-    throw new Error("Missing Whop credentials. Either provide an OAuth accessToken or set WHOP_API_KEY / WHOP_APP_ID.");
+  if (!apiKey) {
+    throw new Error("Missing Whop credentials — provide accessToken or set WHOP_API_KEY");
   }
 
-  return new Whop({ apiKey, appID });
+  return new WhopAPI({ token: apiKey, appId: process.env.WHOP_CLIENT_ID });
 }
 
 /**
- * Helper: Retrieve stored access token for the first connected community
- * (used when you don’t explicitly know the community_id yet)
+ * Helper: fetch first connected community token.
  */
 export async function getDefaultCommunityToken() {
   const { data, error } = await supabase
@@ -39,10 +36,8 @@ export async function getDefaultCommunityToken() {
     .limit(1)
     .single();
 
-  if (error || !data?.whop_access_token) {
+  if (error || !data?.whop_access_token)
     throw new Error("No connected Whop community found in Supabase.");
-  }
 
   return data.whop_access_token;
 }
-
