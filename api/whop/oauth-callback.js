@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     const clientId =
       process.env.WHOP_CLIENT_ID || process.env.WHOP_APP_ID;
     const clientSecret = process.env.WHOP_CLIENT_SECRET;
-    const tokenUrl = "https://api.whop.com/api/v2/oauth/token";
+    const tokenUrl = "https://api.whop.com/oauth/token";
 
     if (!clientId || !clientSecret) {
       return res.status(500).json({
