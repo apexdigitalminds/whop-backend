@@ -13,7 +13,7 @@
   "description": "Whop backend for gamified community app",
   "dependencies": {
     "@supabase/supabase-js": "^2.77.0",
-    "@whop/sdk": "^0.0.3",
+    "@whop/api": "^1.2.0",
     "cross-fetch": "^4.1.0",
     "zod": "^4.1.12"
   }
