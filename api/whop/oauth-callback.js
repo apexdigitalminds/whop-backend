@@ -10,7 +10,6 @@ export default async function handler(req, res) {
     const clientSecret = process.env.WHOP_CLIENT_SECRET;
     const redirectUri = process.env.WHOP_REDIRECT_URI;
 
-    // ✅ Whop expects x-www-form-urlencoded — not JSON
     const params = new URLSearchParams({
       grant_type: "authorization_code",
       code,
@@ -19,23 +18,37 @@ export default async function handler(req, res) {
       client_secret: clientSecret,
     });
 
+    console.log("🔁 Starting token exchange with Whop...");
+    console.log("➡️ Endpoint:", "https://api.whop.com/oauth/token");
+    console.log("➡️ Body:", params.toString());
+
     const tokenResponse = await fetch("https://api.whop.com/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString(),
     });
 
-    const text = await tokenResponse.text();
+    const rawText = await tokenResponse.text();
+
+    console.log("📦 Raw response from Whop:");
+    console.log("===========================================");
+    console.log(rawText);
+    console.log("===========================================");
+
     let tokenData;
     try {
-      tokenData = JSON.parse(text);
+      tokenData = JSON.parse(rawText);
     } catch {
-      console.error("❌ Invalid JSON from Whop:", text);
-      return res.status(500).json({ error: "Invalid JSON response from Whop token endpoint" });
+      console.error("❌ Response was not valid JSON. Here’s the first 400 chars:");
+      console.error(rawText.slice(0, 400));
+      return res.status(500).json({
+        error: "Invalid JSON response from Whop token endpoint",
+        preview: rawText.slice(0, 400),
+      });
     }
 
     if (!tokenResponse.ok) {
-      console.error("❌ OAuth Error:", tokenData);
+      console.error("❌ OAuth token exchange failed:", tokenData);
       return res.status(tokenResponse.status).json({ error: tokenData });
     }
 
@@ -53,15 +66,19 @@ export default async function handler(req, res) {
         whop_last_refreshed: new Date().toISOString(),
       });
 
-    if (dbError) throw new Error("Failed to store tokens: " + dbError.message);
+    if (dbError) {
+      console.error("❌ Failed to save tokens in Supabase:", dbError.message);
+      return res.status(500).json({ error: "Failed to store tokens in Supabase" });
+    }
 
-    res.status(200).json({
-      message: "✅ Whop OAuth success",
-      expires_at: expiresAt,
+    console.log("✅ Whop OAuth connection successful");
+    return res.status(200).json({
+      message: "✅ Connected to Whop successfully!",
       scope: tokenData.scope,
+      expires_at: expiresAt,
     });
   } catch (err) {
-    console.error("OAuth callback error:", err);
+    console.error("⚠️ OAuth callback unexpected error:", err);
     res.status(500).json({ error: err.message });
   }
 }
