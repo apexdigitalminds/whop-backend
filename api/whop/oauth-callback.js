@@ -12,6 +12,17 @@ function readStateCookie(cookieHeader, state) {
 
 export default async function handler(req, res) {
   try {
+    // --- 🧠 LIVE DEBUGGING OF ENV VARIABLES ---
+    console.log("WHOP DEBUG ENV:", {
+      client_id: process.env.WHOP_CLIENT_ID,
+      client_secret_length: process.env.WHOP_CLIENT_SECRET
+        ? process.env.WHOP_CLIENT_SECRET.length
+        : 0,
+      redirect_uri: process.env.WHOP_REDIRECT_URI,
+      frontend_origin: process.env.FRONTEND_ORIGIN,
+      hasSupabaseUrl: !!process.env.SUPABASE_URL,
+    });
+
     const { code, state } = req.query;
 
     if (!code || !state) {
@@ -20,14 +31,15 @@ export default async function handler(req, res) {
     }
 
     const next = readStateCookie(req.headers.cookie, state);
-    if (!next) return res.status(400).json({ error: "Invalid or expired state" });
+    if (!next)
+      return res.status(400).json({ error: "Invalid or expired state" });
 
     // --- ✅ Build form body ---
     const params = new URLSearchParams({
       grant_type: "authorization_code",
       code,
       redirect_uri: process.env.WHOP_REDIRECT_URI,
-      client_id: process.env.WHOP_CLIENT_ID, // included for redundancy
+      client_id: process.env.WHOP_CLIENT_ID,
     });
 
     // --- ✅ Basic Auth Header (required by Whop v5) ---
@@ -48,7 +60,7 @@ export default async function handler(req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": `Basic ${basicAuth}`,
+        Authorization: `Basic ${basicAuth}`,
       },
       body: params.toString(),
     });
@@ -90,11 +102,11 @@ export default async function handler(req, res) {
     });
 
     // --- ✅ Redirect user back to frontend ---
-    const frontend = process.env.FRONTEND_ORIGIN ?? "https://yourfrontenddomain.com";
+    const frontend =
+      process.env.FRONTEND_ORIGIN ?? "https://yourfrontenddomain.com";
     return res.redirect(302, `${frontend}${next}`);
   } catch (err) {
     console.error("OAuth callback error:", err);
     res.status(500).json({ error: err.message });
   }
 }
-
