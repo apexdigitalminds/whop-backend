@@ -22,26 +22,34 @@ export default async function handler(req, res) {
     const next = readStateCookie(req.headers.cookie, state);
     if (!next) return res.status(400).json({ error: "Invalid or expired state" });
 
-    // --- ✅ FORM-ENCODED BODY (REQUIRED BY WHOP) ---
+    // --- ✅ Build form body ---
     const params = new URLSearchParams({
       grant_type: "authorization_code",
       code,
       redirect_uri: process.env.WHOP_REDIRECT_URI,
-      client_id: process.env.WHOP_CLIENT_ID,
-      client_secret: process.env.WHOP_CLIENT_SECRET,
+      client_id: process.env.WHOP_CLIENT_ID, // included for redundancy
     });
-    
-// 🔍 Debug logging to confirm environment values
-console.log("DEBUG OAuth values:", {
-  client_id: process.env.WHOP_CLIENT_ID,
-  hasSecret: !!process.env.WHOP_CLIENT_SECRET,
-  redirect_uri: process.env.WHOP_REDIRECT_URI,
-});
 
-// Make the token request
+    // --- ✅ Basic Auth Header (required by Whop v5) ---
+    const basicAuth = Buffer.from(
+      `${process.env.WHOP_CLIENT_ID}:${process.env.WHOP_CLIENT_SECRET}`
+    ).toString("base64");
+
+    // --- 🔍 Debug logging to confirm environment values ---
+    console.log("DEBUG OAuth values:", {
+      client_id: process.env.WHOP_CLIENT_ID,
+      hasSecret: !!process.env.WHOP_CLIENT_SECRET,
+      redirect_uri: process.env.WHOP_REDIRECT_URI,
+      usingBasicAuth: true,
+    });
+
+    // --- ✅ Make the token request using Basic Auth ---
     const tokenRes = await fetch("https://api.whop.com/v5/oauth/token", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": `Basic ${basicAuth}`,
+      },
       body: params.toString(),
     });
 
@@ -54,13 +62,13 @@ console.log("DEBUG OAuth values:", {
 
     const tokenData = JSON.parse(rawText);
 
-    // --- Fetch Whop user info ---
+    // --- ✅ Fetch Whop user info ---
     const meRes = await fetch("https://api.whop.com/v5/me/user", {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
     const meData = await meRes.json();
 
-    // --- Store in Supabase ---
+    // --- ✅ Store in Supabase ---
     const now = new Date();
     const expiresAt = new Date(now.getTime() + (tokenData.expires_in ?? 3600) * 1000);
 
@@ -81,7 +89,7 @@ console.log("DEBUG OAuth values:", {
       whop_last_refreshed: now.toISOString(),
     });
 
-    // --- Redirect user back to frontend ---
+    // --- ✅ Redirect user back to frontend ---
     const frontend = process.env.FRONTEND_ORIGIN ?? "https://yourfrontenddomain.com";
     return res.redirect(302, `${frontend}${next}`);
   } catch (err) {
@@ -89,3 +97,4 @@ console.log("DEBUG OAuth values:", {
     res.status(500).json({ error: err.message });
   }
 }
+
