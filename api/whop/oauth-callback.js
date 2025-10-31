@@ -30,7 +30,15 @@ export default async function handler(req, res) {
       client_id: process.env.WHOP_CLIENT_ID,
       client_secret: process.env.WHOP_CLIENT_SECRET,
     });
+    
+// 🔍 Debug logging to confirm environment values
+console.log("DEBUG OAuth values:", {
+  client_id: process.env.WHOP_CLIENT_ID,
+  hasSecret: !!process.env.WHOP_CLIENT_SECRET,
+  redirect_uri: process.env.WHOP_REDIRECT_URI,
+});
 
+// Make the token request
     const tokenRes = await fetch("https://api.whop.com/v5/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
