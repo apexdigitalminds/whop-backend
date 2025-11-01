@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   try {
     const { code, state } = req.query;
 
-    // Log environment sanity
+    // Log environment sanity (Your logging is good)
     console.log("WHOP DEBUG ENV:", {
       client_id: process.env.WHOP_CLIENT_ID,
       redirect_uri: process.env.WHOP_REDIRECT_URI,
@@ -30,27 +30,40 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid or expired state" });
 
     // ✅ Use the App API Key as the secret in the token exchange
-    const tokenBody = {
-      grant_type: "authorization_code",
-      code,
-      client_id: process.env.WHOP_CLIENT_ID,
-      client_secret:
-        process.env.WHOP_API_KEY || process.env.WHOP_CLIENT_SECRET,
-      redirect_uri: process.env.WHOP_REDIRECT_URI,
-    };
+    // This part is NOT a JSON object for the body
+    const tokenParams = new URLSearchParams();
+    tokenParams.append("grant_type", "authorization_code");
+    tokenParams.append("code", code);
+    tokenParams.append("client_id", process.env.WHOP_CLIENT_ID);
+    tokenParams.append(
+      "client_secret",
+      process.env.WHOP_API_KEY || process.env.WHOP_CLIENT_SECRET
+    );
+    tokenParams.append("redirect_uri", process.env.WHOP_REDIRECT_URI);
+
 
     console.log("DEBUG token request (no secrets):", {
-      grant_type: tokenBody.grant_type,
-      code_present: !!tokenBody.code,
-      client_id: tokenBody.client_id,
+      grant_type: "authorization_code",
+      code_present: !!code,
+      client_id: process.env.WHOP_CLIENT_ID,
       using_api_key: !!process.env.WHOP_API_KEY,
     });
 
-    const tokenRes = await fetch("https://api.whop.com/v5/oauth/token", {
+    // ===================================================================
+    // ⬇️ THIS IS THE FIX ⬇️
+    // ===================================================================
+
+    const tokenRes = await fetch("https.api.whop.com/v5/oauth/token", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(tokenBody),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: tokenParams, // Use the URLSearchParams object directly
     });
+
+    // ===================================================================
+    // ⬆️ THIS IS THE FIX ⬆️
+    // ===================================================================
 
     const rawText = await tokenRes.text();
     console.log("📦 Whop token response:", tokenRes.status, rawText);
@@ -61,7 +74,7 @@ export default async function handler(req, res) {
     const tokenData = JSON.parse(rawText);
 
     // Fetch user info
-    const meRes = await fetch("https://api.whop.com/v5/me/user", {
+    const meRes = await fetch("https.api.whop.com/v5/me/user", {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
     const meData = await meRes.json();
