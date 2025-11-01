@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   try {
     const { code, state } = req.query;
 
-    // Log environment sanity (Your logging is good)
+    // Log environment sanity
     console.log("WHOP DEBUG ENV:", {
       client_id: process.env.WHOP_CLIENT_ID,
       redirect_uri: process.env.WHOP_REDIRECT_URI,
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     if (!next)
       return res.status(400).json({ error: "Invalid or expired state" });
 
-    // ✅ Use the App API Key as the secret in the token exchange
+    // Use the App API Key as the secret in the token exchange
     const tokenParams = new URLSearchParams();
     tokenParams.append("grant_type", "authorization_code");
     tokenParams.append("code", code);
@@ -48,22 +48,14 @@ export default async function handler(req, res) {
       using_api_key: !!process.env.WHOP_API_KEY,
     });
 
-    // ===================================================================
-    // ⬇️ THIS IS THE FIX (Line 56) ⬇️
-    // Added https://
-    // ===================================================================
-
+    // Fetch token
     const tokenRes = await fetch("https://api.whop.com/v5/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: tokenParams, // Use the URLSearchParams object directly
+      body: tokenParams,
     });
-
-    // ===================================================================
-    // ⬆️ END OF FIX ⬆️
-    // ===================================================================
 
     const rawText = await tokenRes.text();
     console.log("📦 Whop token response:", tokenRes.status, rawText);
@@ -73,19 +65,10 @@ export default async function handler(req, res) {
 
     const tokenData = JSON.parse(rawText);
 
-    // ===================================================================
-    // ⬇️ THIS IS THE SECOND FIX ⬇️
-    // Added https://
-    // ===================================================================
-
     // Fetch user info
     const meRes = await fetch("https://api.whop.com/v5/me/user", {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
-
-    // ===================================================================
-    // ⬆️ END OF FIX ⬆️
-    // ===================================================================
 
     const meData = await meRes.json();
 
@@ -111,8 +94,16 @@ export default async function handler(req, res) {
 
     const frontend = process.env.FRONTEND_ORIGIN ?? "https://yourfrontenddomain.com";
     return res.redirect(302, `${frontend}${next}`);
-  } catch (err)
+
+  // ===================================================================
+  // ⬇️ THIS IS THE FIX ⬇️
+  // Added the { and } back
+  // ===================================================================
+  } catch (err) {
     console.error("OAuth callback error:", err);
     res.status(500).json({ error: err.message });
   }
+  // ===================================================================
+  // ⬆️ END OF FIX ⬆️
+  // =================================S==================================
 }
