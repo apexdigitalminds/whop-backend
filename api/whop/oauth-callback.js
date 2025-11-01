@@ -30,7 +30,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Invalid or expired state" });
 
     // ✅ Use the App API Key as the secret in the token exchange
-    // This part is NOT a JSON object for the body
     const tokenParams = new URLSearchParams();
     tokenParams.append("grant_type", "authorization_code");
     tokenParams.append("code", code);
@@ -50,10 +49,11 @@ export default async function handler(req, res) {
     });
 
     // ===================================================================
-    // ⬇️ THIS IS THE FIX ⬇️
+    // ⬇️ THIS IS THE FIX (Line 56) ⬇️
+    // Added https://
     // ===================================================================
 
-    const tokenRes = await fetch("https.api.whop.com/v5/oauth/token", {
+    const tokenRes = await fetch("https://api.whop.com/v5/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     });
 
     // ===================================================================
-    // ⬆️ THIS IS THE FIX ⬆️
+    // ⬆️ END OF FIX ⬆️
     // ===================================================================
 
     const rawText = await tokenRes.text();
@@ -73,10 +73,20 @@ export default async function handler(req, res) {
 
     const tokenData = JSON.parse(rawText);
 
+    // ===================================================================
+    // ⬇️ THIS IS THE SECOND FIX ⬇️
+    // Added https://
+    // ===================================================================
+
     // Fetch user info
-    const meRes = await fetch("https.api.whop.com/v5/me/user", {
+    const meRes = await fetch("https://api.whop.com/v5/me/user", {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
+
+    // ===================================================================
+    // ⬆️ END OF FIX ⬆️
+    // ===================================================================
+
     const meData = await meRes.json();
 
     const now = new Date();
@@ -101,7 +111,7 @@ export default async function handler(req, res) {
 
     const frontend = process.env.FRONTEND_ORIGIN ?? "https://yourfrontenddomain.com";
     return res.redirect(302, `${frontend}${next}`);
-  } catch (err) {
+  } catch (err)
     console.error("OAuth callback error:", err);
     res.status(500).json({ error: err.message });
   }
