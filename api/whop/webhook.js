@@ -3,7 +3,7 @@ import { supabase } from "../_supabase.js";
 
 export const config = {
   api: {
-    bodyParser: false, // Important: raw body for signature validation
+    bodyParser: false, // Required: we need the raw body for signature verification
   },
 };
 
@@ -13,16 +13,16 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: "Method Not Allowed" });
     }
 
-    // Read raw body
+    // Collect raw request body
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const rawBody = Buffer.concat(chunks);
     const bodyString = rawBody.toString("utf8");
 
-    // Verify signature
+    // Validate webhook secret and signature
     const whopSecret = process.env.WHOP_WEBHOOK_SECRET;
     const receivedSig = req.headers["whop-signature"];
-    if (!receivedSig || !whopSecret) {
+    if (!whopSecret || !receivedSig) {
       return res.status(400).json({ error: "Missing signature or secret" });
     }
 
@@ -32,48 +32,74 @@ export default async function handler(req, res) {
       .digest("hex");
 
     if (expectedSig !== receivedSig) {
-      console.warn("❌ Invalid signature");
+      console.warn("❌ Invalid webhook signature");
       return res.status(401).json({ error: "Invalid signature" });
     }
 
-    // Parse JSON body
-    const event = JSON.parse(bodyString);
+    // Parse JSON payload
+    let event;
+    try {
+      event = JSON.parse(bodyString);
+    } catch (e) {
+      console.error("❌ Invalid JSON body", e);
+      return res.status(400).json({ error: "Invalid JSON" });
+    }
+
     const type = event?.type || "unknown";
     console.log("✅ Verified webhook:", type);
 
+    // --- Handle Whop events ---
     switch (type) {
-      case "membership_activated":
-        await supabase.from("profiles").upsert({
-          whop_user_id: event.data.user.id,
-          email: event.data.user.email,
-          community_id: event.data.company_id,
-          active: true,
-          updated_at: new Date().toISOString(),
-        });
+      case "membership_activated": {
+        const m = event.data;
+        console.log("💡 Membership activated:", m.user?.email || m.user?.id);
+        await supabase.from("profiles").upsert(
+          {
+            whop_user_id: m.user?.id,
+            email: m.user?.email || null,
+            username: m.user?.username || m.user?.name || "Member",
+            active: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "whop_user_id" }
+        );
         break;
+      }
 
-      case "membership_deactivated":
+      case "membership_deactivated": {
+        const m = event.data;
+        console.log("🚪 Membership deactivated:", m.user?.email || m.user?.id);
         await supabase
           .from("profiles")
-          .update({ active: false, updated_at: new Date().toISOString() })
-          .eq("whop_user_id", event.data.user.id);
+          .update({
+            active: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("whop_user_id", m.user?.id);
         break;
+      }
 
-      case "payment_succeeded":
-        console.log("💰 Payment succeeded for:", event.data.user.id);
+      case "payment_succeeded": {
+        const p = event.data;
+        console.log("💰 Payment succeeded:", p.user?.email || p.user?.id);
+        // Optionally record in Supabase or log analytics
         break;
+      }
 
-      case "payment_failed":
-        console.log("⚠️ Payment failed for:", event.data.user.id);
+      case "payment_failed": {
+        const p = event.data;
+        console.log("⚠️ Payment failed:", p.user?.email || p.user?.id);
+        // Optionally record failed payment attempts
         break;
+      }
 
       default:
-        console.log("Unhandled event:", type);
+        console.log("📦 Unhandled event type:", type);
     }
 
-    res.status(200).json({ received: true });
-  } catch (e) {
-    console.error("Webhook error:", e);
-    res.status(500).json({ error: e.message });
+    return res.status(200).json({ received: true });
+  } catch (err) {
+    console.error("Webhook handler error:", err);
+    return res.status(500).json({ error: err.message });
   }
 }
